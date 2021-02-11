@@ -1,0 +1,128 @@
+#include <Stepper.h>
+
+int stepsPerRevolution = 64;
+Stepper motorX(stepsPerRevolution, 22, 24, 23, 25);
+Stepper motorY(stepsPerRevolution, 28, 30, 29, 31);
+
+int buzzer = 50;
+
+String readString = "";
+float stepX = 0;
+float speedX = 0;
+float stepY = 0;
+float speedY = 0;
+String DeltaSelectString = "";
+float delta = 0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(buzzer, LOW);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char data = Serial.read();
+    readString += data;
+    if (data == '/') {
+      getData();
+    }
+  }
+}
+
+void getData() {
+  int stepXStarPosition = readString.indexOf("stepX=") + sizeof("stepX=") - 1;
+  int stepXEndPosition = readString.indexOf("&speedX=");
+  String stepXString = readString.substring(stepXStarPosition, stepXEndPosition);
+  stepX = stepXString.toFloat();
+
+  int speedXStarPosition = readString.indexOf("speedX=") + sizeof("speedX=") - 1;
+  int speedXEndPosition = readString.indexOf("&stepY=");
+  String speedXString = readString.substring(speedXStarPosition, speedXEndPosition);
+  speedX = speedXString.toFloat();
+
+  int stepYStarPosition = readString.indexOf("stepY=") + sizeof("stepY=") - 1;
+  int stepYEndPosition = readString.indexOf("&speedY=");
+  String stepYString = readString.substring(stepYStarPosition, stepYEndPosition);
+  stepY = stepYString.toFloat();
+
+  int speedYStarPosition = readString.indexOf("speedY=") + sizeof("speedY=") - 1;
+  int speedYEndPosition = readString.indexOf("&deltaSelect=");
+  String speedYString = readString.substring(speedYStarPosition, speedYEndPosition);
+  speedY = speedYString.toFloat();
+
+  int DeltaSelectStarPosition = readString.indexOf("deltaSelect=") + sizeof("deltaSelect=") - 1;
+  int DeltaSelectEndPosition = readString.indexOf("&delta=");
+  DeltaSelectString = readString.substring(DeltaSelectStarPosition, DeltaSelectEndPosition);
+
+  int deltaStarPosition = readString.indexOf("delta=") + sizeof("delta=") - 1;
+  int deltaEndPosition = readString.indexOf("/");
+  String deltaString = readString.substring(deltaStarPosition, deltaEndPosition);
+  delta = deltaString.toFloat();
+
+  turnOn();
+}
+
+void turnOn() {
+  digitalWrite(buzzer, HIGH);
+  delay(2000);
+  digitalWrite(buzzer, LOW);
+
+  if (DeltaSelectString == "deltaX") {
+    int j = abs(stepX / delta);
+    int signal = 1;
+
+    if (stepX < 0) {
+      delta = -delta;
+    }
+
+    stepX = round(stepX * 2048 / 14.95);
+    speedX = round(speedX * 100 / 14.95 * 19.22);
+    stepY = round(stepY * 2048 / 3.55);
+    speedY = round(speedY * 100 / 3.55 * 19.22);
+    delta = round(delta * 2048 / 14.95);
+
+    motorX.setSpeed(speedX);
+    motorY.setSpeed(speedY);
+
+    for (int i = 0; i < j; i++) {
+      motorY.step(signal * stepY);
+      motorX.step(delta);
+      signal = signal * -1;
+    }
+  }
+  else {
+    int j = abs(stepY / delta);
+    int signal = 1;
+
+    if (stepY < 0) {
+      delta = -delta;
+    }
+
+    stepX = round(stepX * 2048 / 14.95);
+    speedX = round(speedX * 100 / 14.95 * 19.22);
+    stepY = round(stepY * 2048 / 3.55);
+    speedY = round(speedY * 100 / 3.55 * 19.22);
+    delta = round(delta * 2048 / 3.55);
+
+    motorX.setSpeed(speedX);
+    motorY.setSpeed(speedY);
+
+    for (int i = 0; i < j; i++) {
+      motorX.step(signal * stepX);
+      motorY.step(delta);
+      signal = signal * -1;
+    }
+  }
+
+  readString = "";
+  stepX = 0;
+  speedX = 0;
+  stepY = 0;
+  speedY = 0;
+  DeltaSelectString = "";
+  delta = 0;
+  digitalWrite(buzzer, HIGH);
+  delay(2000);
+  digitalWrite(buzzer, LOW);
+}
